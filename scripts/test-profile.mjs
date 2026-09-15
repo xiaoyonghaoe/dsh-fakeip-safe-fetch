@@ -7,7 +7,8 @@ import { createHash } from 'node:crypto'
 import { parse } from 'yaml'
 
 const root = fileURLToPath(new URL('../', import.meta.url))
-const tarball = resolve(process.argv[2] ?? join(root, 'artifacts/dsh-fakeip-safe-fetch-0.1.0.tgz'))
+const { name, version } = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'))
+const tarball = resolve(process.argv[2] ?? join(root, `artifacts/${name}-${version}.tgz`))
 await mkdir(join(root, '.test-profile'), { recursive: true })
 const work = await mkdtemp(join(root, '.test-profile/run-'))
 const runtime = join(work, 'runtime')

@@ -6,7 +6,7 @@ import type { Lookup } from '../src/ip-policy.js'
 
 function setup(input = {}) {
   let now = 1000
-  const lookup = vi.fn(async () => [fake()])
+  const lookup = vi.fn<Lookup>(async () => [fake()])
   const validate = vi.fn(async () => ({ addresses: [real()], expiresAt: now + 60000 }))
   const resolver = new SafeResolver(resolveConfig(input), { lookup, doh: { validate }, now: () => now })
   return { resolver, lookup, validate, tick: (ms: number) => { now += ms } }
@@ -45,6 +45,20 @@ it('public system DNS skips DoH', async () => {
   s.lookup.mockResolvedValue([real()])
   expect(await s.resolver.resolve('example.com', signal())).toEqual([real()])
   expect(s.validate).not.toHaveBeenCalled()
+})
+
+it('accepts the Mihomo default fake-IP IPv4 and IPv6 pools in one answer', async () => {
+  const s = setup()
+  const entries = [fake('198.18.1.47'), { address: 'fdfe:dcba:9876::12c', family: 6 as const }]
+  s.lookup.mockResolvedValue(entries)
+  expect(await s.resolver.resolve('example.com', signal())).toEqual(entries)
+  expect(s.validate).toHaveBeenCalledTimes(1)
+})
+
+it('names the non-public address that falls outside the fake-IP pool', async () => {
+  const s = setup()
+  s.lookup.mockResolvedValue([fake('198.18.1.47'), { address: 'fd00:6152::1', family: 6 }])
+  await expect(s.resolver.resolve('example.com', signal())).rejects.toThrow(/fd00:6152::1/)
 })
 
 it.each([{ entries: [fake(), real()] }, { entries: [fake(), fake('127.0.0.1')] }, { entries: [fake('169.254.169.254')] }])('blocks unsafe sets even with cached validation: %j', async ({ entries }) => {

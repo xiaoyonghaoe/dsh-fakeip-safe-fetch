@@ -12,7 +12,7 @@
 
 - Node.js 24 或更高版本；开发使用 pnpm 11.19.0。
 - 兼容基线：DSH **0.1.5-rc.2**。依赖固定在该版本；旧的 npm `latest` 缺少所需 Resolver 接口，不能使用。
-- Clash/Mihomo 已启用 TUN 和 fake-IP；默认地址池为 `198.18.0.0/15`。
+- Clash/Mihomo 已启用 TUN 和 fake-IP；默认地址池为 `198.18.0.0/15`（IPv4）与 `fdfe:dcba:9876::/48`（IPv6），覆盖 Mihomo 的 `fake-ip-range` / `fake-ip-range6` 默认值。
 - 仅支持 DSH 对目标使用直连路由的 TUN 场景。目标走显式 HTTP 代理时拒绝；应在启动 DSH 前移除相应代理配置并重启。插件不会修改系统代理或全局 dispatcher。运行过程中重新安装进程代理策略不受支持。
 
 从源码生成安装包：
@@ -27,7 +27,7 @@ pnpm pack --pack-destination artifacts
 使用 **0.1.5-rc.2** 的 DSH 命令安装到需要使用的 Profile：
 
 ```sh
-dsh plugin --profile web add /absolute/path/dsh-fakeip-safe-fetch-0.1.0.tgz
+dsh plugin --profile web add /absolute/path/dsh-fakeip-safe-fetch-0.1.1.tgz
 dsh --profile web --dump-config
 ```
 
@@ -49,7 +49,7 @@ DSH 将移除本包的配置层；若用户自己的覆盖层仍指定 `fakeip-s
 
 | 字段 | 默认值 | 含义 |
 | --- | --- | --- |
-| `fakeIpCidrs` | `[198.18.0.0/15]` | 进入 DoH 验证流程的地址池，支持 IPv4/IPv6；不是直接放行名单 |
+| `fakeIpCidrs` | `[198.18.0.0/15, fdfe:dcba:9876::/48]` | 进入 DoH 验证流程的地址池，支持 IPv4/IPv6；不是直接放行名单。覆盖时为**整体替换**，双栈代理下必须同时列出 IPv4 与 IPv6 池 |
 | `dohUrl` | `https://dns.google/dns-query` | RFC 8484 HTTPS 二进制 DoH 地址 |
 | `dohTimeoutMs` | `5000` | 每次 DoH HTTP 查询及响应读取超时（毫秒） |
 | `maxValidationTtlMs` | `300000` | 成功验证缓存的 TTL 上限；`0` 禁用缓存 |
@@ -66,8 +66,9 @@ DSH 将移除本包的配置层；若用户自己的覆盖层仍指定 `fakeip-s
   name: dsh-fakeip-safe-fetch
   config:
     fakeIpCidrs:
-      - 198.18.0.0/16
-      - fd00:6152::/32
+      - 198.18.0.0/15        # 保留默认 IPv4 池
+      - fdfe:dcba:9876::/48  # 保留默认 IPv6 池
+      - fd00:6152::/32       # 追加自定义 IPv6 池
     dohUrl: https://cloudflare-dns.com/dns-query
     dohTimeoutMs: 8000
     maxValidationTtlMs: 60000
@@ -81,6 +82,18 @@ DSH 将移除本包的配置层；若用户自己的覆盖层仍指定 `fakeip-s
 DSH Patch **整体替换目标行的 `config`**，缺失字段由本插件的 Schema 默认值补齐；此前层中的自定义值不会自动保留。覆盖 `web` 时，需同时填写希望保留的 `searchProvider` 与 `fetchProvider`。`tool-web.fetchTimeoutMs` 是外层工具预算；只增大本插件 `timeoutMs` 不会延长该外层预算。
 
 配置重载通过 Cordis 重新创建实例，终止旧实例请求并清空缓存。`debug` 输出走 Cordis logger；如宿主日志级别过滤 debug，还需调整宿主日志级别。
+
+### 双栈代理必须同时配置 IPv4 与 IPv6 池
+
+fake-IP 模式下代理会同时对 A 与 AAAA 返回伪地址。如果 `fakeIpCidrs` 只覆盖其中一族，整个 DNS 应答会被判为"非 fake-IP"并以 `WEB_BLOCKED_URL` 拒绝，表现为任何域名都抓不到、与具体网址无关。0.1.1 起默认值已同时包含 Mihomo 的两族默认池；自定义 `fake-ip-range6` 的用户需按报错补上自己的地址段。
+
+拒绝时错误信息会指出落在池外的具体地址，例如：
+
+```text
+DNS answer is not entirely fake-IP: non-public fdfe:dcba:9876::12c outside the configured fakeIpCidrs; add your proxy's fake-IP ranges
+```
+
+把这里列出的地址段加入 `fakeIpCidrs` 即可。注意该字段是整体替换，需连同默认池一起列出。
 
 ## 安全行为
 
@@ -109,6 +122,6 @@ pnpm test:tun            # 显式运行当前机器上的 TUN 实机测试
 
 `test:profile` 会下载官方 DSH 0.1.5-rc.2，在独立 `DSH_HOME` 中验证 CLI 安装、补丁合成、配置覆盖、已安装包的 Cordis 注册和卸载。报告写入 `artifacts/profile-report.json`，不会修改日常 Profile；隔离目录保留以便排查。
 
-`test:tun` 默认抓取 `https://example.com/`，可用 `DSH_TUN_TEST_URL` 指定测试网页。先检查系统 DNS 是否全部来自默认 fake-IP 池，再验证公网抓取、非公网字面量阻断、DoH 不可用时拒绝；未启用对应 TUN 环境的检查标记为 `unverified`，不会伪报通过。报告写入 `artifacts/tun-report.json`。更换 IPv6/其他 fake-IP 池后需对应调整实机测试脚本中的地址池。
+`test:tun` 默认抓取 `https://example.com/`，可用 `DSH_TUN_TEST_URL` 指定测试网页。先检查系统 DNS 是否全部来自默认 fake-IP 池，再验证公网抓取、非公网字面量阻断、DoH 不可用时拒绝；未启用对应 TUN 环境的检查标记为 `unverified`，不会伪报通过。报告写入 `artifacts/tun-report.json`。就绪判断使用插件默认池（`198.18.0.0/15` 与 `fdfe:dcba:9876::/48`）；使用自定义 fake-IP 池时用 `DSH_TUN_FAKEIP_CIDRS=198.18.0.0/15,fd00:6152::/32 pnpm test:tun` 传入。
 
 本地打包不等同于发布 npm；本项目不包含自动发布或修改 Clash 配置的脚本。

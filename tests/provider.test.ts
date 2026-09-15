@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { FakeIpSafeFetchProvider } from '../src/provider.js'
 import { fake, real } from './helpers.js'
+import type { Lookup } from '../src/ip-policy.js'
 
 const network = vi.hoisted(() => ({
   proxied: false,
@@ -24,7 +25,7 @@ beforeEach(() => {
 afterEach(() => { vi.restoreAllMocks() })
 
 function setup(config = {}) {
-  const lookup = vi.fn(async () => [fake()])
+  const lookup = vi.fn<Lookup>(async () => [fake()])
   const validate = vi.fn(async () => ({ addresses: [real()], expiresAt: Date.now() + 60000 }))
   const provider = new FakeIpSafeFetchProvider(config, { lookup, doh: { validate } })
   return { provider, lookup, validate }
@@ -42,6 +43,17 @@ it('runs the actual upstream provider with pinning, Host/SNI hostname and scoped
   expect(callback).toHaveBeenCalledWith(null, [fake()])
   expect(network.agents[0]!.close).toHaveBeenCalledTimes(1)
   expect(s.lookup).toHaveBeenCalledTimes(1)
+})
+
+it('fetches through a dual-stack Mihomo fake-IP answer', async () => {
+  const s = setup()
+  const entries = [fake('198.18.1.47'), { address: 'fdfe:dcba:9876::12c', family: 6 as const }]
+  s.lookup.mockResolvedValue(entries)
+  expect(await s.provider.fetch({ url: 'https://example.com/' })).toMatchObject({ statusCode: 200, body: { content: 'hello' } })
+  expect(s.validate).toHaveBeenCalledTimes(1)
+  const callback = vi.fn()
+  network.agents[0]!.options.connect.lookup('example.com', { all: true }, callback)
+  expect(callback).toHaveBeenCalledWith(null, entries)
 })
 
 it('re-resolves and pins the current fake-IP on every same-origin redirect', async () => {

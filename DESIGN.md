@@ -4,7 +4,7 @@
 
 开发 `dsh-fakeip-safe-fetch`，解决 DSH `web_fetch` 与 Clash/Mihomo TUN fake-IP 模式的冲突。
 
-系统 DNS 返回 `198.18.x.x` 等 fake-IP 时，DSH 会将其识别为非公网地址并触发 SSRF 拦截。本插件不直接关闭安全检查，而是：
+系统 DNS 返回 `198.18.x.x`、`fdfe:dcba:9876::x` 等 fake-IP 时，DSH 会将其识别为非公网地址并触发 SSRF 拦截。本插件不直接关闭安全检查，而是：
 
 ```text
 识别 fake-IP
@@ -41,6 +41,7 @@
   config:
     fakeIpCidrs:
       - 198.18.0.0/15
+      - fdfe:dcba:9876::/48
     dohUrl: https://dns.google/dns-query
     dohTimeoutMs: 5000
     maxValidationTtlMs: 300000
@@ -53,7 +54,7 @@
 
 默认值说明：
 
-- `fakeIpCidrs`：允许进入独立 DoH 验证流程的 fake-IP 地址池；该配置不是直接放行名单。
+- `fakeIpCidrs`：允许进入独立 DoH 验证流程的 fake-IP 地址池；该配置不是直接放行名单。默认值同时包含 Mihomo 的 IPv4（`fake-ip-range` 198.18.0.1/16）与 IPv6（`fake-ip-range6` fdfe:dcba:9876::1/64）默认池，因为 fake-IP 模式下 A 与 AAAA 会被同时伪造，只覆盖一族会导致整个应答被判为非 fake-IP。
 - `dohUrl`：用于获取真实 A/AAAA 记录的独立 RFC 8484 DoH 服务。
 - `dohTimeoutMs`：单次 DoH 查询超时时间，单位为毫秒。
 - `maxValidationTtlMs`：域名安全验证结果的最大缓存时间，单位为毫秒；实际缓存时间取 DoH TTL 与该值中的较小值。
@@ -96,7 +97,8 @@
   name: dsh-fakeip-safe-fetch
   config:
     fakeIpCidrs:
-      - 198.18.0.0/16
+      - 198.18.0.0/15
+      - fdfe:dcba:9876::/48
       - fd00:6152::/32
     dohUrl: https://cloudflare-dns.com/dns-query
     dohTimeoutMs: 8000

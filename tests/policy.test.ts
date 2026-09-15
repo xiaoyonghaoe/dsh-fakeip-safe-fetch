@@ -13,6 +13,14 @@ describe('address policy', () => {
     expect(isFakeIp('::ffff:198.18.0.1', cidrs)).toBe(true)
     expect(isFakeIp('fd00:6152::1', cidrs)).toBe(true)
   })
+  it('covers both Mihomo default fake-IP pools out of the box', () => {
+    const cidrs = parseCidrs(defaults.fakeIpCidrs)
+    expect(isFakeIp('198.18.1.47', cidrs)).toBe(true)
+    expect(isFakeIp('198.19.255.255', cidrs)).toBe(true)
+    expect(isFakeIp('fdfe:dcba:9876::12c', cidrs)).toBe(true)
+    expect(isFakeIp('fd00:6152::1', cidrs)).toBe(false)
+    expect(isFakeIp('198.20.0.1', cidrs)).toBe(false)
+  })
   it('rejects malformed DNS answers', () => {
     expect(() => validateAddressShape([])).toThrow('no addresses')
     expect(() => validateAddressShape([{ address: '8.8.8.8', family: 6 }])).toThrow('invalid address')

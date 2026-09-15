@@ -2,9 +2,13 @@ import { lookup } from 'node:dns/promises'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { FakeIpSafeFetchProvider } from '../lib/index.js'
+import { defaults } from '../lib/config.js'
 import { isFakeIp, parseCidrs } from '../lib/ip-policy.js'
 
 const url = new URL(process.env.DSH_TUN_TEST_URL ?? 'https://example.com/')
+// Probe readiness against the shipped pools, or against DSH_TUN_FAKEIP_CIDRS for custom ones.
+const pools = (process.env.DSH_TUN_FAKEIP_CIDRS ?? defaults.fakeIpCidrs.join(',')).split(',').map(value => value.trim()).filter(Boolean)
+const cidrs = parseCidrs(pools)
 const results = []
 const providers = []
 const create = (config = {}) => {
@@ -20,7 +24,7 @@ let addresses = []
 let tunReady = false
 try {
   addresses = await lookup(url.hostname, { all: true, order: 'verbatim' })
-  tunReady = addresses.length > 0 && addresses.every(entry => isFakeIp(entry.address, parseCidrs(['198.18.0.0/15'])))
+  tunReady = addresses.length > 0 && addresses.every(entry => isFakeIp(entry.address, cidrs))
 } catch (error) { results.push({ name: 'system DNS', status: 'failed', detail: String(error) }); process.exitCode = 1 }
 
 const provider = create()
@@ -48,10 +52,10 @@ if (tunReady) {
     throw new Error('fetch succeeded despite unavailable DoH')
   })
 } else {
-  results.push({ name: 'TUN public fetch and unavailable DoH', status: 'unverified', detail: 'System DNS does not currently return only default-pool fake-IPs. Enable TUN fake-IP and rerun explicitly.' })
+  results.push({ name: 'TUN public fetch and unavailable DoH', status: 'unverified', detail: `System DNS does not currently return only fake-IPs from ${pools.join(', ')}. Enable TUN fake-IP, or set DSH_TUN_FAKEIP_CIDRS to your proxy's pools, and rerun explicitly.` })
 }
 for (const item of providers) item.dispose()
-const report = { time: new Date().toISOString(), url: url.href, addresses, tunReady, results }
+const report = { time: new Date().toISOString(), url: url.href, pools, addresses, tunReady, results }
 const directory = fileURLToPath(new URL('../artifacts/', import.meta.url))
 await mkdir(directory, { recursive: true })
 await writeFile(`${directory}/tun-report.json`, JSON.stringify(report, null, 2) + '\n')

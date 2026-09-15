@@ -17,7 +17,10 @@ export interface Config {
 export type ResolvedConfig = Readonly<Omit<Required<Config>, 'fakeIpCidrs'>> & { readonly fakeIpCidrs: readonly string[] }
 
 export const defaults: ResolvedConfig = Object.freeze({
-  fakeIpCidrs: Object.freeze(['198.18.0.0/15']),
+  // Mihomo/Clash ship these two fake-IP pools by default: fake-ip-range 198.18.0.1/16
+  // and fake-ip-range6 fdfe:dcba:9876::1/64. A proxy answers A and AAAA at once, so a
+  // pool that only covers IPv4 rejects every dual-stack answer as a non-public mix.
+  fakeIpCidrs: Object.freeze(['198.18.0.0/15', 'fdfe:dcba:9876::/48']),
   dohUrl: 'https://dns.google/dns-query',
   dohTimeoutMs: 5000,
   maxValidationTtlMs: 300000,

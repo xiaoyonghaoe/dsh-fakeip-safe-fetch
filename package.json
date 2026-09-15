@@ -1,6 +1,6 @@
 {
   "name": "dsh-fakeip-safe-fetch",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "DNS-validated Clash/Mihomo TUN fake-IP web fetch provider for DeepSeek Harness",
   "type": "module",
   "license": "MIT",

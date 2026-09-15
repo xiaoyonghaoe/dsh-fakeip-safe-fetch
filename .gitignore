@@ -1,0 +1,11 @@
+node_modules/
+artifacts/
+.test-profile/
+coverage/
+.DS_Store
+.tmp-tools/
+
+# lib/ is committed on purpose so the repo is usable as-is.
+# artifacts/ (packed tarball + verification reports) is never committed;
+# the installable package is published on the GitHub Releases page instead.
+*.tgz

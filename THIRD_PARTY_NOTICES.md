@@ -2,7 +2,7 @@
 
 The IP classification and RFC 6052 / RFC 7050 DNS64 policy in `src/ip-policy.ts`
 is adapted from DeepSeek Harness `packages/web/web-fetch-http/src/network.ts`,
-version 0.1.5-rc.2:
+version 0.2.0-rc.2:
 https://github.com/deepseek-ai/deepseek-harness
 
 MIT License

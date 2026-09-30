@@ -1,0 +1,4 @@
+# The repository is stored with LF line endings. Forcing LF on checkout keeps
+# generated sourcemaps free of CRLF inside sourcesContent and avoids
+# line-ending-only diffs on Windows even when core.autocrlf is true.
+* text=auto eol=lf

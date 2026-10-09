@@ -17,20 +17,26 @@ await mkdir(runtime, { recursive: true })
 await mkdir(profile, { recursive: true })
 const env = { ...process.env, DSH_HOME: join(work, 'home') }
 for (const key of Object.keys(env)) if (key.startsWith('DSH_') && key !== 'DSH_HOME') delete env[key]
-const report = { time: new Date().toISOString(), node: process.version, dsh: '0.1.5-rc.2', work, tarball, checks: [] }
+const report = { time: new Date().toISOString(), node: process.version, dsh: '0.2.0-rc.2', work, tarball, checks: [] }
 
 function run(command, args, cwd = runtime, capture = false) {
   return new Promise((resolveRun, reject) => {
-    const child = spawn(command, args, { cwd, env, stdio: ['ignore', capture ? 'pipe' : 'inherit', 'inherit'] })
+    // Windows ships pnpm as a .cmd shim, which Node cannot spawn without a shell;
+    // quote each token so a path containing spaces still reaches the shim intact.
+    const isWindows = process.platform === 'win32'
+    const quote = value => /[\s"]/.test(value) ? `"${value.replace(/"/g, '\\"')}"` : value
+    const spawned = isWindows
+      ? spawn([command, ...args].map(quote).join(' '), { cwd, env, shell: true, stdio: ['ignore', capture ? 'pipe' : 'inherit', 'inherit'] })
+      : spawn(command, args, { cwd, env, stdio: ['ignore', capture ? 'pipe' : 'inherit', 'inherit'] })
     let output = ''
-    child.stdout?.on('data', chunk => { output += String(chunk) })
-    child.on('error', reject)
-    child.on('close', code => code === 0 ? resolveRun(output) : reject(new Error(`${command} exited ${code}`)))
+    spawned.stdout?.on('data', chunk => { output += String(chunk) })
+    spawned.on('error', reject)
+    spawned.on('close', code => code === 0 ? resolveRun(output) : reject(new Error(`${command} exited ${code}`)))
   })
 }
 try {
   report.sha256 = createHash('sha256').update(await readFile(tarball)).digest('hex')
-  await writeFile(join(runtime, 'package.json'), JSON.stringify({ name: 'isolated-dsh-runtime', private: true, type: 'module', dependencies: { '@deepseek-ai/dsh': '0.1.5-rc.2' } }, null, 2))
+  await writeFile(join(runtime, 'package.json'), JSON.stringify({ name: 'isolated-dsh-runtime', private: true, type: 'module', dependencies: { '@deepseek-ai/dsh': '0.2.0-rc.2' } }, null, 2))
   await writeFile(join(runtime, 'pnpm-workspace.yaml'), 'allowBuilds: {}\n')
   await run('pnpm', ['install', '--ignore-scripts'])
   const cli = join(runtime, 'node_modules/@deepseek-ai/dsh/lib/bin.js')

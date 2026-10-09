@@ -11,7 +11,7 @@
 ## 兼容与安装
 
 - Node.js 24 或更高版本；开发使用 pnpm 11.19.0。
-- 兼容基线：DSH **0.1.5-rc.2**。依赖固定在该版本；旧的 npm `latest` 缺少所需 Resolver 接口，不能使用。
+- 兼容基线：DSH **0.2.0-rc.2**。依赖固定在该版本；本插件通过 `peerDependencies` 声明 `^0.2.0-rc.2`，DSH 会在安装时校验该范围，不匹配的旧版本会被拒绝（可用 `dsh plugin allow-version` 显式豁免，不建议）。
 - Clash/Mihomo 已启用 TUN 和 fake-IP；默认地址池为 `198.18.0.0/15`（IPv4）与 `fdfe:dcba:9876::/48`（IPv6），覆盖 Mihomo 的 `fake-ip-range` / `fake-ip-range6` 默认值。
 - 仅支持 DSH 对目标使用直连路由的 TUN 场景。目标走显式 HTTP 代理时拒绝；应在启动 DSH 前移除相应代理配置并重启。插件不会修改系统代理或全局 dispatcher。运行过程中重新安装进程代理策略不受支持。
 
@@ -24,12 +24,14 @@ mkdir -p artifacts
 pnpm pack --pack-destination artifacts
 ```
 
-使用 **0.1.5-rc.2** 的 DSH 命令安装到需要使用的 Profile：
+使用 **0.2.0-rc.2** 的 DSH 命令安装到需要使用的 Profile：
 
 ```sh
-dsh plugin --profile web add /absolute/path/dsh-fakeip-safe-fetch-0.1.1.tgz
+dsh plugin --profile web add /absolute/path/dsh-fakeip-safe-fetch-0.1.2.tgz
 dsh --profile web --dump-config
 ```
+
+0.2.0 起 `dsh plugin` 会在安装前读取待安装包的 `peerDependencies`，并把本插件声明的 `@deepseek-ai/dsh-*` 版本范围与当前 DSH 运行时比对；不满足范围时安装会被拒绝，并提示对应的允许版本命令。将本插件升级到声明 `^0.2.0-rc.2` 的版本后即可正常安装。
 
 `dsh plugin` 会通过包内 `dsh.bundle.patch` 元数据自动加入配置层，加载 Provider，将 `web.fetchProvider` 设为 `fakeip-safe`，并启用 `tool-web.fetch`。无需手填默认配置。直接执行普通 `npm install` / `pnpm add` 不会触发 DSH 的 bundle 注册步骤。
 
@@ -120,7 +122,7 @@ pnpm test:profile        # 先打包；在 .test-profile/ 下创建全新隔离 
 pnpm test:tun            # 显式运行当前机器上的 TUN 实机测试
 ```
 
-`test:profile` 会下载官方 DSH 0.1.5-rc.2，在独立 `DSH_HOME` 中验证 CLI 安装、补丁合成、配置覆盖、已安装包的 Cordis 注册和卸载。报告写入 `artifacts/profile-report.json`，不会修改日常 Profile；隔离目录保留以便排查。
+`test:profile` 会下载官方 DSH 0.2.0-rc.2，在独立 `DSH_HOME` 中验证 CLI 安装、补丁合成、配置覆盖、已安装包的 Cordis 注册和卸载。报告写入 `artifacts/profile-report.json`，不会修改日常 Profile；隔离目录保留以便排查。
 
 `test:tun` 默认抓取 `https://example.com/`，可用 `DSH_TUN_TEST_URL` 指定测试网页。先检查系统 DNS 是否全部来自默认 fake-IP 池，再验证公网抓取、非公网字面量阻断、DoH 不可用时拒绝；未启用对应 TUN 环境的检查标记为 `unverified`，不会伪报通过。报告写入 `artifacts/tun-report.json`。就绪判断使用插件默认池（`198.18.0.0/15` 与 `fdfe:dcba:9876::/48`）；使用自定义 fake-IP 池时用 `DSH_TUN_FAKEIP_CIDRS=198.18.0.0/15,fd00:6152::/32 pnpm test:tun` 传入。
 

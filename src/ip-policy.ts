@@ -11,7 +11,7 @@ export type Cidr = [Ip, number]
 
 export const stripBrackets = (input: string): string => input.startsWith('[') && input.endsWith(']') ? input.slice(1, -1) : input
 
-// Policy follows DSH 0.1.5-rc.2 network.ts (MIT); see THIRD_PARTY_NOTICES.md.
+// Policy follows DSH 0.2.0-rc.2 network.ts (MIT); see THIRD_PARTY_NOTICES.md.
 export function isPublicIp(input: string): boolean {
   const text = stripBrackets(input)
   if (!isIP(text) || text.includes('%')) return false

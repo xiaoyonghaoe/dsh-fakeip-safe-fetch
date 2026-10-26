@@ -17,7 +17,7 @@ await mkdir(runtime, { recursive: true })
 await mkdir(profile, { recursive: true })
 const env = { ...process.env, DSH_HOME: join(work, 'home') }
 for (const key of Object.keys(env)) if (key.startsWith('DSH_') && key !== 'DSH_HOME') delete env[key]
-const report = { time: new Date().toISOString(), node: process.version, dsh: '0.2.0-rc.2', work, tarball, checks: [] }
+const report = { time: new Date().toISOString(), node: process.version, dsh: '0.2.1-rc.3', work, tarball, checks: [] }
 
 function run(command, args, cwd = runtime, capture = false) {
   return new Promise((resolveRun, reject) => {
@@ -36,7 +36,7 @@ function run(command, args, cwd = runtime, capture = false) {
 }
 try {
   report.sha256 = createHash('sha256').update(await readFile(tarball)).digest('hex')
-  await writeFile(join(runtime, 'package.json'), JSON.stringify({ name: 'isolated-dsh-runtime', private: true, type: 'module', dependencies: { '@deepseek-ai/dsh': '0.2.0-rc.2' } }, null, 2))
+  await writeFile(join(runtime, 'package.json'), JSON.stringify({ name: 'isolated-dsh-runtime', private: true, type: 'module', dependencies: { '@deepseek-ai/dsh': '0.2.1-rc.3' } }, null, 2))
   await writeFile(join(runtime, 'pnpm-workspace.yaml'), 'allowBuilds: {}\n')
   await run('pnpm', ['install', '--ignore-scripts'])
   const cli = join(runtime, 'node_modules/@deepseek-ai/dsh/lib/bin.js')

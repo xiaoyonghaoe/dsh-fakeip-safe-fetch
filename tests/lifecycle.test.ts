@@ -11,7 +11,7 @@ it('registers, recreates on config changes, disposes and unregisters with Cordis
   const fiber = await ctx.plugin(plugin, {})
   try {
     await expect(ctx.web.fetch({ url: 'http://127.0.0.1/' })).rejects.toMatchObject({ code: 'WEB_BLOCKED_URL' })
-    // Cordis 4.0.4 restarts asynchronously: update() schedules the reload behind the
+    // Cordis 4.0.5 restarts asynchronously: update() schedules the reload behind the
     // internal/update waterfall, so the fiber must settle before the new instance serves.
     fiber.update({ maxValidationTtlMs: 0 })
     await fiber.await()
